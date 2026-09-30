@@ -1,8 +1,20 @@
 // Cloudee backend: Express server + OpenRouter (via the OpenAI SDK).
+require("dotenv").config();
 const express = require("express");
 const OpenAI = require("openai");
 const path = require("path");
-const cfg = require("./config");
+
+// Settings come from environment variables (.env locally, host dashboard when deployed).
+const cfg = {
+  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+  BASE_URL: "https://openrouter.ai/api/v1",
+  MODEL: process.env.MODEL || "openrouter/free", // any OpenRouter model id works
+  PORT: process.env.PORT || 3000,
+  RATE_LIMIT_PER_MINUTE: 12,
+  MAX_MESSAGE_CHARS: 1000,
+  MAX_HISTORY_MESSAGES: 12,
+  MAX_REPLY_TOKENS: 400,
+};
 
 const keyMissing = () =>
   !cfg.OPENROUTER_API_KEY || cfg.OPENROUTER_API_KEY.startsWith("PASTE_");
@@ -121,7 +133,7 @@ app.post("/api/chat", async (req, res) => {
     if (keyMissing()) {
       send({
         error:
-          "Cloudee's AI isn't connected yet. Add your OpenRouter API key in config.js and restart the server.",
+          "Cloudee's AI isn't connected yet. Set the OPENROUTER_API_KEY environment variable and restart the server.",
       });
       return end();
     }
@@ -163,7 +175,7 @@ app.post("/api/chat", async (req, res) => {
       } catch (err) {
         console.error(`OpenRouter error (attempt ${attempt}):`, err.status || "", err.message);
         if (err.status === 401 || err.status === 403) {
-          send({ error: "The API key was rejected by OpenRouter. Please check the key in config.js." });
+          send({ error: "The API key was rejected by OpenRouter. Please check the OPENROUTER_API_KEY value." });
           return end();
         }
         if (sent) break; // already streamed part of a reply, don't duplicate it
@@ -183,5 +195,5 @@ app.post("/api/chat", async (req, res) => {
 
 app.listen(cfg.PORT, () => {
   console.log(`Cloudee is running at http://localhost:${cfg.PORT}`);
-  if (keyMissing()) console.log("⚠  No API key yet. Open config.js and paste your OpenRouter key.");
+  if (keyMissing()) console.log("⚠  No API key yet. Set OPENROUTER_API_KEY in your .env file.");
 });
